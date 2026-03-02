@@ -68,7 +68,8 @@ const BASE_SYSTEM = `Você é Nexus, um analista sênior de inteligência de mer
 - Use dados reais, tendências verificáveis e benchmarks do mercado brasileiro
 - Seja direto, sofisticado e sem rodeios — o usuário é inteligente
 - Adapte o tipo de resposta ao tipo de pergunta
-- Quando usar web_search, cite os dados encontrados nas análises
+- É OBRIGATÓRIO usar web_search para buscar o tamanho do mercado e concorrentes. NUNCA invente ou alucine números de faturamento, TAM ou investimento. Se não encontrar dados reais na web, preencha com "Não divulgado" ou faça uma estimativa com aviso "Estimado".
+- Quando usar web_search, cite os dados e fontes encontradas nas análises
 
 ## TIPOS DE RESPOSTA
 Você deve identificar o tipo de pergunta e responder com o JSON adequado:
@@ -310,14 +311,17 @@ export default async function handler(req, res) {
                     let searchResult = '';
                     try {
                         const args = JSON.parse(tc.function.arguments);
-                        // Groq's native web search via Brave (when available) or fallback DuckDuckGo
-                        const ddgUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(args.query)}&format=json&no_html=1&skip_disambig=1`;
-                        const ddgRes = await fetch(ddgUrl);
-                        if (ddgRes.ok) {
-                            const ddgData = await ddgRes.json();
-                            const abstract = ddgData.AbstractText || '';
-                            const related = (ddgData.RelatedTopics || []).slice(0, 5).map(t => t.Text || '').filter(Boolean).join(' | ');
-                            searchResult = [abstract, related].filter(Boolean).join('\n') || 'Sem resultados diretos.';
+                        // Web search via DuckDuckGo HTML snippet scraping
+                        const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(args.query)}`;
+                        const res = await fetch(searchUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } });
+                        if (res.ok) {
+                            const html = await res.text();
+                            const snippets = [...html.matchAll(/<a class="result__snippet[^>]*>(.*?)<\/a>/gi)]
+                                .map(m => m[1].replace(/<\/?[^>]+(>|$)/g, ""))
+                                .slice(0, 5).join("\n\n");
+                            searchResult = snippets || 'Sem resultados diretos na web. Responda baseando-se no que sabe, mas NÃO INVENTE números financeiros.';
+                        } else {
+                            searchResult = 'Erro na busca. Responda com cautela e NÃO INVENTE números de mercado.';
                         }
                     } catch (e) {
                         searchResult = 'Pesquisa não disponível no momento.';
