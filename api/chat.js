@@ -32,29 +32,29 @@ async function fetchBCB() {
             fetch('https://olinda.bcb.gov.br/olinda/servico/PTAX/versao/v1/odata/CotacaoDolarDia(dataCotacao=@dataCotacao)?@dataCotacao=%27${today()}%27&$format=json&$top=1')
         ]);
         const selic = selicRes.ok ? await selicRes.json() : null;
-        const ipca  = ipcaRes.ok  ? await ipcaRes.json()  : null;
-        const ptax  = ptaxRes.ok  ? await ptaxRes.json()  : null;
+        const ipca = ipcaRes.ok ? await ipcaRes.json() : null;
+        const ptax = ptaxRes.ok ? await ptaxRes.json() : null;
         return {
             selic: selic?.[0]?.valor ?? null,
-            ipca:  ipca?.[0]?.valor  ?? null,
-            ptax:  ptax?.value?.[0]?.cotacaoVenda ?? null
+            ipca: ipca?.[0]?.valor ?? null,
+            ptax: ptax?.value?.[0]?.cotacaoVenda ?? null
         };
     } catch { return null; }
 }
 
 function today() {
     const d = new Date();
-    return `${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}-${d.getFullYear()}`;
+    return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}-${d.getFullYear()}`;
 }
 
 function buildContextBlock(ibge, bcb) {
     const lines = ['## CONTEXTO MACROECONÔMICO BRASIL (tempo real)'];
     if (bcb) {
         if (bcb.selic) lines.push(`- SELIC meta: ${bcb.selic}% a.a.`);
-        if (bcb.ipca)  lines.push(`- IPCA (último mês): ${bcb.ipca}%`);
-        if (bcb.ptax)  lines.push(`- Dólar PTAX: R$ ${Number(bcb.ptax).toFixed(2)}`);
+        if (bcb.ipca) lines.push(`- IPCA (último mês): ${bcb.ipca}%`);
+        if (bcb.ptax) lines.push(`- Dólar PTAX: R$ ${Number(bcb.ptax).toFixed(2)}`);
     }
-    if (ibge?.regioes) lines.push(`- Regiões IBGE disponíveis: ${ibge.regioes.map(r=>r.nome).join(', ')}`);
+    if (ibge?.regioes) lines.push(`- Regiões IBGE disponíveis: ${ibge.regioes.map(r => r.nome).join(', ')}`);
     lines.push('Use estes dados reais para enriquecer a análise de risco, investimento e mercado.');
     return lines.join('\n');
 }
@@ -279,7 +279,7 @@ export default async function handler(req, res) {
                 role: userMsg.role,
                 content: userMsg.content,
                 created_at: new Date().toISOString()
-            }).then(() => {});
+            }).then(() => { });
         }
 
         // ── 3. First call — may trigger web_search tool ──────────────────────
@@ -334,8 +334,9 @@ export default async function handler(req, res) {
 
         // ── 5. Final streaming call with enriched context ────────────────────
         const stream = await groq.chat.completions.create({
-            model: 'llama-3.1-8b-instant',
+            model: 'llama-3.3-70b-versatile',
             messages: enrichedMessages,
+            response_format: { type: 'json_object' },
             stream: true,
             max_tokens: 3000,
             temperature: 0.65,
@@ -359,7 +360,7 @@ export default async function handler(req, res) {
                 role: 'assistant',
                 content: fullResponse,
                 created_at: new Date().toISOString()
-            }).then(() => {});
+            }).then(() => { });
         }
 
         res.write('data: [DONE]\n\n');
